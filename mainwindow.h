@@ -2,7 +2,6 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
-#include <QFileDialog>
 #include "Global.h"
 #include "xlsxchart.h"
 #include "xlsxcellrange.h"
@@ -37,31 +36,28 @@ public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
 
-    //void setMyAppAutoRun(bool isStart);         // 设置自启动
     void insertLogReList(QString op_info);
     void cannCan();
-
     bool mconnect = false;
 private slots:
     void deal_my_string(QString str);             // 子线程结束槽函数
-    //void timerEvent(QTimerEvent *event);      //
 
 private:
-    void            init();
+
     void            log();
-    bool            DirExist(QString fullPath);
-    bool            createxlsx(QString fullPath,QString strDate,QString strTime);
-    void            xlsxFile(QString fullPath);
+    void            saveCurrentFile();
+    void            createNewFile();
+    QString         generateFilePath() const;
+    int             m_maxRowsPerFile;       // 每个文件的最大行数
+    int             m_currentFileNumber;    // 当前文件编号
+    QString         m_currentFilePath;      // 当前文件地址
+    QXlsx::Document *m_currentDocument = nullptr;
+
     short           flag,num = 0;
     int             curRow_Login;
-    bool            isOK = false;
-    int             i_num = 0;
-    //int             SystemId;
     sTab_data_      tab_Dta = {0,0,0,0,0,0,0,0,0,0};
+
     Ui::MainWindow  *ui;
     CanQthread      *MyCANControlThread = nullptr;
-    QFile           *file = nullptr;
-    //QXlsx::Document *xlsx = nullptr;
-
 };
 #endif // MAINWINDOW_H

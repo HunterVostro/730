@@ -15,7 +15,7 @@ public:
                                    int maxRowsPerFile = 100,
                                    QObject *parent = nullptr);
 
-    bool writeRow(const QString rowData);
+    bool writeRow(const struct rowData data);
     void close();
     void setMaxRowsPerFile(int maxRows);
     int maxRowsPerFile() const;
@@ -27,7 +27,7 @@ signals:
     void errorOccurred(const QString& error);
 private:
     QScopedPointer<QXlsx::Document> m_currentDocument;
-    QString m_baseFilePath;
+    QString m_baseFilePath;//基本文件路径
     int m_maxRowsPerFile;
     int m_currentFileNumber;
     int m_currentRowInFile;

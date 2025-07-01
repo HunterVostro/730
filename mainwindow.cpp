@@ -1,7 +1,7 @@
 ﻿#include "mainwindow.h"
 #include <QProcessEnvironment>
 #include "ui_mainwindow.h"
-#include <QTextCodec>
+
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -19,9 +19,11 @@ MainWindow::MainWindow(QWidget *parent)
         MyCANControlThread = new CanQthread;
         connect(MyCANControlThread,SIGNAL(my_signal(QString)),this,SLOT(deal_my_string(QString)));
         cannCan();
-        init();
+        ui->textEdit->setReadOnly(true);
         ui->textEdit->document()->setMaximumBlockCount(50); // 设置最大行数
-        //SystemId = startTimer(500);
+        m_currentFileNumber = 0;
+        curRow_Login = 0;
+        m_maxRowsPerFile = 600;
     });
 }
 
@@ -30,90 +32,8 @@ MainWindow::~MainWindow() {
         MyCANControlThread->CloseCANThread();
         MyCANControlThread->stop();         // 停止子线程
     }
-    file->close();
-    delete xlsx;
-    delete file;
-
+    delete m_currentDocument;
     delete ui;
-}
-
-/*void MainWindow::timerEvent(QTimerEvent *event) {
-    if (event->timerId() == SystemId) {
-        QString strDate = currenttime.toString("yyyy-MM-dd");
-        QString strTime = currenttime.toString("hh");
-    }
-}*/
-
-void MainWindow::init() {
-    ui->textEdit->setReadOnly(true);
-    QDateTime currenttime = QDateTime::currentDateTime();
-    QString strDate = currenttime.toString("yyyy-MM-dd");
-    QString strTime = currenttime.toString(" hh "); // -mm-ss
-    //i_num = QString::toInt(strTime);
-    QString path = QCoreApplication::applicationDirPath() + "/Log";
-    bool textIsOk = false;
-    curRow_Login = 0;
-    if (DirExist(path)) {
-        textIsOk = createxlsx(path,strDate,strTime);//createText(path,strDate,strTime);
-    }
-
-    QTextStream stream(file);
-    stream.setCodec("utf-8");
-    //fileStream.setCodec(QTextCodec::codecForName("utf-8"));//必须加，否则含有中文时乱码
-    //stream.setCodec(QTextCodec::codecForName("utf-8"));//必须加，否则含有中文时乱码
-    stream<<QString("左轮速度")<<" , "<<QString("右轮速度")<<" , "<<QString("左轮转矩")<<" , "<<QString("右轮转矩")<<" , "
-          <<QString("左销轴力")<<" , "<<QString("右销轴力")<<" , "<<QString("系统压力")<<" , "
-          <<QString("油泵转速")<<" , "<<QString("指令线速")<<" , "<<QString("指令角速")<<"\r\n";
-}
-
-bool MainWindow::DirExist(QString fullPath) {
-    QDir dir(fullPath);
-    if (dir.exists()) {
-            qDebug()<<QString::fromUtf8(u8"目录已存在");
-            ui->textEdit->append("目录已存在");
-            return true;
-        } else {
-            bool ok = dir.mkdir(fullPath);
-            qDebug()<<QString::fromUtf8(u8"创建一级子目录");
-            ui->textEdit->append("创建一级子目录");
-            return ok;
-    }
-    return false;
-}
-
-/*********************************************************************************************************/
-
-bool MainWindow::createxlsx(QString fullPath,QString strDate,QString strTime) {
-    const QString strPath = fullPath + "/" + strDate + strTime + " log.xlsx";
-    //file = new QFile("/log.txt");//("C:/FilesData/QtFiles/730/build-730-Desktop_Qt_5_12_12_MinGW_64_bit-Debug/debug/Log/ log.txt");
-    //file = new QFile("log.txt");
-    file = new QFile(fullPath + "/" + strDate + strTime + " log.txt");
-    isOK = file->open(QIODevice::WriteOnly|QIODevice::Append); // QIODevice::WriteOnly| QIODevice::Text|
-    xlsx = new QXlsx::Document(strPath,this);
-    QFileInfo fi(strPath);
-    if(fi.isFile()) { // 判断文件是否创建成功
-        ui->textEdit->append("xlsx已存在");
-        int last = 1;
-        while (!xlsx->read(last,1).isNull()) {
-            last++;
-        }
-        curRow_Login = last - 2;
-     } else {
-        xlsx->write("A1", "左轮速度");
-        xlsx->write("B1", "右轮速度");
-        xlsx->write("C1", "左轮转矩");
-        xlsx->write("D1", "右轮转矩");
-        xlsx->write("E1", "左销轴力");
-        xlsx->write("F1", "右销轴力");
-        xlsx->write("G1", "系统压力");
-        xlsx->write("H1", "油泵转速");
-        xlsx->write("I1", "指令线速");
-        xlsx->write("J1", "指令角速");
-        xlsx->save();
-        ui->textEdit->append("xlsx创建成功");
-     }
-
-    return fi.isFile();
 }
 
 /************************************************************************************/
@@ -189,56 +109,84 @@ void MainWindow::insertLogReList(QString op_info) {
     }
 
     if(flag == 3) {
+        if (curRow_Login > m_maxRowsPerFile || m_currentDocument == nullptr) {
+            saveCurrentFile();
+            m_currentFileNumber++;
+            curRow_Login = 0;
+            createNewFile();
+            m_currentDocument->write("A1", "动作时间");
+            m_currentDocument->write("B1", "左轮速度");
+            m_currentDocument->write("C1", "右轮速度");
+            m_currentDocument->write("D1", "左轮转矩");
+            m_currentDocument->write("E1", "右轮转矩");
+            m_currentDocument->write("F1", "左销轴力");
+            m_currentDocument->write("G1", "右销轴力");
+            m_currentDocument->write("H1", "系统压力");
+            m_currentDocument->write("I1", "油泵转速");
+            m_currentDocument->write("J1", "指令线速");
+            m_currentDocument->write("K1", "指令角速");
+            //m_currentDocument->save();
+            ui->textEdit->append(QString("创建新文件: %1").arg(generateFilePath()));
+        }
         curRow_Login += 1;
         //  逐行写入
-        xlsx->write(curRow_Login+1,1,tab_Dta.speed_l);
-        xlsx->write(curRow_Login+1,2,tab_Dta.speed_r);
-        xlsx->write(curRow_Login+1,3,tab_Dta.cur_l);
-        xlsx->write(curRow_Login+1,4,tab_Dta.cur_r);
-        xlsx->write(curRow_Login+1,5,tab_Dta.force_l);
-        xlsx->write(curRow_Login+1,6,tab_Dta.force_r);
-        xlsx->write(curRow_Login+1,7,tab_Dta.pressure);
-        xlsx->write(curRow_Login+1,8,tab_Dta.speed_p);
-        xlsx->write(curRow_Login+1,9,tab_Dta.commsp);
-        xlsx->write(curRow_Login+1,10,tab_Dta.commal);
+        QDateTime currenttime = QDateTime::currentDateTime();                       //  系统时间
+        QString strTime = currenttime.toString("hh:mm:ss");
+        m_currentDocument->write(curRow_Login+1,1,strTime);
+        m_currentDocument->write(curRow_Login+1,2,tab_Dta.speed_l);
+        m_currentDocument->write(curRow_Login+1,3,tab_Dta.speed_r);
+        m_currentDocument->write(curRow_Login+1,4,tab_Dta.cur_l);
+        m_currentDocument->write(curRow_Login+1,5,tab_Dta.cur_r);
+        m_currentDocument->write(curRow_Login+1,6,tab_Dta.force_l);
+        m_currentDocument->write(curRow_Login+1,7,tab_Dta.force_r);
+        m_currentDocument->write(curRow_Login+1,8,tab_Dta.pressure);
+        m_currentDocument->write(curRow_Login+1,9,tab_Dta.speed_p);
+        m_currentDocument->write(curRow_Login+1,10,tab_Dta.commsp);
+        m_currentDocument->write(curRow_Login+1,11,tab_Dta.commal);
 
-        QDateTime currenttime = QDateTime::currentDateTime();
-        QString strTime =currenttime.toString("[hh:mm:ss]:");
-        // xlsx->dimension().columnCount(); 计算总列数
-        if ( xlsx->dimension().rowCount() >= 1800) { // 计算总行数
-
-        }
-
-        if (!xlsx->save()) {
-            ui->textEdit->append(strTime + "动态保存失败");
+        if (!m_currentDocument->save()) {
+            ui->textEdit->append(QString::number(curRow_Login) + "动态保存失败");
         } else {
-            ui->textEdit->append(strTime + "动态保存成功");
+            ui->textEdit->append(QString::number(curRow_Login) + "动态保存成功");
         }
-
-        //xlsx.dimension().rowCount();
-
-
-        if(isOK) {
-            QTextStream stream(file);
-            stream<<tab_Dta.speed_l<<","<<tab_Dta.speed_r<<","<<tab_Dta.cur_l<<","<<tab_Dta.cur_r<<","
-                  <<tab_Dta.force_l<<","<<tab_Dta.force_r<<","<<tab_Dta.pressure<<","
-                  <<tab_Dta.speed_p<<","<<tab_Dta.commsp<<","<<tab_Dta.commal<<"\r\n";
-        }  else  { //文件打开失败
-            qDebug()<<QString::fromLocal8Bit("open txt err");
-        }
-
-       /* if (curRow_Login == 3600) {
-            curRow_Login = 0;
-            QDateTime currenttime = QDateTime::currentDateTime();
-            //QString strDate = currenttime.toString("yyyy-MM-dd");
-            //QString strTime =currenttime.toString(" hh "); // -mm-ss
-            QString path = QCoreApplication::applicationDirPath() + "/Log.qlsx";
-            xlsx->setObjectName(path);//(path);
-            xlsx->save();
-        }*/
-
         flag = 0;
     }
+}
+
+void MainWindow::saveCurrentFile() {
+    if (m_currentDocument && curRow_Login > 1) {
+        m_currentDocument->save();
+        delete m_currentDocument;
+        m_currentDocument = nullptr;
+    }
+}
+
+void MainWindow::createNewFile() {
+    m_currentFilePath = generateFilePath();
+    m_currentDocument = new QXlsx::Document(m_currentFilePath);
+}
+
+QString MainWindow::generateFilePath() const
+{
+    QString m_baseFilePath = QCoreApplication::applicationDirPath() + "/Log";   //  安装地址
+    QDateTime currenttime = QDateTime::currentDateTime();                       //  系统时间
+    QString strDate = currenttime.toString("yyyy-MM-dd");
+    QString strTime = currenttime.toString(" hh ");
+    const QString strPath = m_baseFilePath + "/" + strDate + strTime + " log.xlsx";
+    QFileInfo fileInfo(strPath);
+    QString baseName = fileInfo.baseName();
+    QString suffix = fileInfo.completeSuffix();
+    QString path = fileInfo.path();
+
+    if (!path.isEmpty()) {
+        path += "/";
+    }
+
+    return QString("%1%2_%3.%4")
+            .arg(path)
+            .arg(baseName)
+            .arg(m_currentFileNumber)
+            .arg(suffix);
 }
 
 void MainWindow::log() {

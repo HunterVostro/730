@@ -5,18 +5,6 @@
 #include <QProcessEnvironment>
 void setMyAppAutoRun(bool isStart)
 {
-
-    /*QSettings settings("HKEY_CURRENT_USER\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", QSettings::NativeFormat);
-    //设置注册表路径
-    QString appName = QApplication::applicationName();//应用程序名称
-    QString appPath = QApplication::applicationFilePath();//应用程序绝对路径
-    appPath = QDir::toNativeSeparators(appPath);
-    if (isStart) {
-        settings.setValue(appName, appPath);
-    } else {
-        settings.remove(appName);
-    }*/
-
     QString taskName = QApplication::applicationName();
     QString appPath = QDir::toNativeSeparators(QApplication::applicationFilePath());
 

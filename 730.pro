@@ -19,15 +19,13 @@ SOURCES += \
     Global.cpp \
     canqthread.cpp \
     main.cpp \
-    mainwindow.cpp \
-    xlsxmultifilewriter.cpp
+    mainwindow.cpp
 
 HEADERS += \
     ECanVci.h \
     Global.h \
     canqthread.h \
-    mainwindow.h \
-    xlsxmultifilewriter.h
+    mainwindow.h
 
 FORMS += \
     mainwindow.ui
