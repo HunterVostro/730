@@ -44,13 +44,16 @@ private slots:
 
 private:
 
-    void            log();
+    void            exitRun(bool start);
+    void            DirExist(QString fullPath);
+    void            log(bool tip);
     void            saveCurrentFile();
     void            createNewFile();
     QString         generateFilePath() const;
     int             m_maxRowsPerFile;       // 每个文件的最大行数
     int             m_currentFileNumber;    // 当前文件编号
     QString         m_currentFilePath;      // 当前文件地址
+    QString         m_baseFilePath;
     QXlsx::Document *m_currentDocument = nullptr;
 
     short           flag,num = 0;

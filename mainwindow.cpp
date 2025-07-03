@@ -11,19 +11,20 @@ MainWindow::MainWindow(QWidget *parent)
     this->show();
     this->activateWindow();
 
-    // 先进行最简单的初始化
-    log();
 
     // 延迟其他初始化
     QTimer::singleShot(2000, this, [this]() {
-        MyCANControlThread = new CanQthread;
-        connect(MyCANControlThread,SIGNAL(my_signal(QString)),this,SLOT(deal_my_string(QString)));
-        cannCan();
-        ui->textEdit->setReadOnly(true);
-        ui->textEdit->document()->setMaximumBlockCount(50); // 设置最大行数
         m_currentFileNumber = 0;
         curRow_Login = 0;
         m_maxRowsPerFile = 600;
+        ui->textEdit->setReadOnly(true);
+        ui->textEdit->document()->setMaximumBlockCount(50); // 设置最大行数
+        m_baseFilePath = QCoreApplication::applicationDirPath() + "/Log";   //  安装地址
+        DirExist(m_baseFilePath);
+        MyCANControlThread = new CanQthread;
+        connect(MyCANControlThread,SIGNAL(my_signal(QString)),this,SLOT(deal_my_string(QString)));
+        cannCan();
+        exitRun(mconnect);
     });
 }
 
@@ -48,7 +49,6 @@ void MainWindow::cannCan() {
         if(IsOpenFlag == false) {//启动设备失败
           MyCANControlThread->CloseCANThread();
           MyCANControlThread->stop();//停止子线程
-          QMessageBox::information(this,u8"错误",u8"打开设备失败");
           ui->textEdit->append("启动can设备失败");
         } else {//启动设备成功
           mconnect = true;
@@ -59,6 +59,34 @@ void MainWindow::cannCan() {
         MyCANControlThread->stop();//停止子线程
         mconnect = false;
     }
+
+    return;
+}
+
+void MainWindow::exitRun(bool start) {
+   log(start);
+   if (!start) {
+       qApp->quit();
+       qApp->exit(0);
+   }
+   return;
+}
+
+void MainWindow::DirExist(QString fullPath) {
+    QDir dir(fullPath);
+    if (dir.exists()) {
+            ui->textEdit->append("目录已存在");
+            return;
+        } else {
+            bool ok = dir.mkdir(fullPath);
+            if (ok) {
+                ui->textEdit->append("创建一级子目录");
+            } else {
+                ui->textEdit->append("目录创建失败");
+            }
+            return;
+    }
+    return;
 }
 
 void MainWindow::deal_my_string(QString str)//槽函数//子线程(run()函数)结束后由子线程的信号函数(my_signal(QString))触发该函数
@@ -69,6 +97,8 @@ void MainWindow::deal_my_string(QString str)//槽函数//子线程(run()函数)�
     } else {
         num += 1;
     }
+
+    return;
 }
 
 void MainWindow::insertLogReList(QString op_info) {
@@ -151,6 +181,8 @@ void MainWindow::insertLogReList(QString op_info) {
         }
         flag = 0;
     }
+
+    return;
 }
 
 void MainWindow::saveCurrentFile() {
@@ -159,16 +191,19 @@ void MainWindow::saveCurrentFile() {
         delete m_currentDocument;
         m_currentDocument = nullptr;
     }
+
+    return;
 }
 
 void MainWindow::createNewFile() {
     m_currentFilePath = generateFilePath();
     m_currentDocument = new QXlsx::Document(m_currentFilePath);
+
+    return;
 }
 
 QString MainWindow::generateFilePath() const
 {
-    QString m_baseFilePath = QCoreApplication::applicationDirPath() + "/Log";   //  安装地址
     QDateTime currenttime = QDateTime::currentDateTime();                       //  系统时间
     QString strDate = currenttime.toString("yyyy-MM-dd");
     QString strTime = currenttime.toString(" hh ");
@@ -189,18 +224,38 @@ QString MainWindow::generateFilePath() const
             .arg(suffix);
 }
 
-void MainWindow::log() {
-    QFile logFile("startup.log");
-    if(logFile.open(QIODevice::WriteOnly | QIODevice::Append)) {
+void MainWindow::log(bool tip) {
+    QFile logFile(m_baseFilePath + "/startup.log");
+    if (logFile.open(QIODevice::ReadWrite | QIODevice::Text | QIODevice::Append)) {  // 使用 Text 模式自动处理换行符
         QTextStream stream(&logFile);
-        stream << QDateTime::currentDateTime().toString() << " - Program started\n";
-        stream << "Application path: " << QCoreApplication::applicationFilePath() << "\n";
-        stream << "Working directory: " << QDir::currentPath() << "\n";
-        stream << "Arguments: " << QCoreApplication::arguments().join(" ") << "\n";
-        stream << "Environment: " << QProcessEnvironment::systemEnvironment().toStringList().join(";") << "\n";
-        logFile.close();
+        stream.setCodec("utf-8");// Qt6 使用 setEncoding，Qt5 用 setCodec("utf-8")
+
+        QStringList lines;
+        stream.seek(0);
+        while (!stream.atEnd()) {
+            lines.append(stream.readLine());
+        }
+
+        if (lines.size() >= 30) {
+            lines = lines.mid(3);
+            logFile.resize(0);
+            stream.seek(0);
+            for (const QString &line : lines) {
+                stream << line << "\n";
+            }
+        }
+
+        QDateTime timeData = QDateTime::currentDateTime();
+        stream << timeData.toString("yyyy-MM-dd hh:mm:ss") << QString("   启动计划\n");
+        stream << QString("应用目录: ") << QCoreApplication::applicationFilePath() << "\n";
+        stream << QString("启动情况: ") << (tip ? QString("程序正常启动。") : QString("CAN设备启动失败，程序关闭。")) << "\n";
+        logFile.close();  // 关闭文件
     }
+
+    return;
 }
+
+
 
 
 
